@@ -1,0 +1,8 @@
+#plotly-panel{display:flex}
+#plotly-form td{text-align:center;padding:.2rem .5rem;border:1px solid #eee}
+#plotly-form td:first-child{text-align:left}
+#plotly-form td:last-child{text-align:left}
+#plotly-form th{text-align:center;padding:.2rem .5rem;font-weight:600;border:1px solid #eee}
+#plotly-form th:first-child{text-align:left}
+#plotly-form th:last-child{text-align:left}
+#plotly-chart{flex-grow:1;display:flex;justify-content: center;align-items:center;text-align:center}
