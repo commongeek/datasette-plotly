@@ -1,11 +1,22 @@
-#plotly-panel{display:flex;font-size:.8em;resize:vertical;overflow:auto;background-color:#fff;border:1px solid #eee}
-#plotly-form{padding:10px}
-//#plotly-form table{border-color:#eee;border-width:0 1px 1px 0;margin:0 10px 10px 10px}
-#plotly-form td{text-align:center;padding:.2rem .5rem;border:1px solid #eee}
-#plotly-form td:first-child{text-align:left}
-#plotly-form td:last-child{text-align:left}
-#plotly-form th{text-align:center;padding:.2rem .5rem;font-weight:600;border:1px solid #eee}
-#plotly-form th:first-child{text-align:left}
-#plotly-form th:last-child{text-align:left}
-#plotly-form tr:first-child td{text-align:center;padding:1rem}
-#plotly-chart{flex-grow:1;display:flex;justify-content: center;align-items:center;text-align:center}
+#plotly-panel{display:flex;font-size:.8em;resize:vertical;overflow:hidden;background-color:#fff;border-bottom:1px solid #eee}
+#plotly-right{text-align:left;display:flex;flex-direction:column;align-items:center;overflow:hidden;padding-left:20px}
+
+#plotly-traces td{text-align:center;padding:.2rem .5rem;border:1px solid #eee}
+#plotly-traces td:first-child{text-align:left}
+#plotly-traces td:last-child{text-align:left}
+#plotly-traces th{text-align:center;padding:.2rem .5rem;font-weight:600;border:1px solid #eee}
+#plotly-traces th:first-child{text-align:left}
+#plotly-traces th:last-child{text-align:left}
+#plotly-traces tr:first-child td{text-align:center;padding:1rem}
+
+#plotly-config{display:inline-block}
+#plotly-config td{padding:.2rem .5rem;border:1px solid #eee}
+
+#plotly-config td:has(input[name="stack"]){display:none}
+#plotly-config.stackable td:has(input[name="stack"]){display:table-cell}
+
+/*
+#plotly-config td:has(input[name="agg"]){display:none}
+#plotly-config[data-type="pie"] td:has(input[name="agg"]){display:table-cell}
+*/
+#plotly-chart{border:1px solid #ccc;box-sizing:content-box;width:700px;height:450px;padding:10px;resize:both;overflow:hidden;min-width:700px;min-height:450px;margin-top:20px}
