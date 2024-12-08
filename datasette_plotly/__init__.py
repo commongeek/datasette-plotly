@@ -4,7 +4,8 @@ from datasette import hookimpl
 async def extra_js_urls(template, database, table, columns, view_name, request, datasette):
     return [
         'https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js',
-        'https://cdn.plot.ly/plotly-3.0.0-rc.1.min.js',
+        #'https://cdn.plot.ly/plotly-3.0.0-rc.1.min.js',
+        'https://cdn.jsdelivr.net/npm/apexcharts',
         '/-/static-plugins/datasette-plotly/main.js'
     ]
 

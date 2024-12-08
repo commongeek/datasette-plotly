@@ -1,4 +1,4 @@
-#plotly-panel{display:flex;font-size:.8em;resize:vertical;overflow:hidden;background-color:#fff;border-bottom:1px solid #eee}
+#plotly-panel{display:flex;font-size:.8em;background-color:#fff;border-bottom:1px solid #eee}
 #plotly-right{text-align:left;display:flex;flex-direction:column;align-items:center;overflow:hidden;padding-left:20px}
 
 #plotly-traces td{text-align:center;padding:.2rem .5rem;border:1px solid #eee}
@@ -11,9 +11,18 @@
 
 #plotly-config{display:inline-block}
 #plotly-config td{padding:.2rem .5rem;border:1px solid #eee}
+#plotly-config td.sep{width:1em;border-top:none;border-bottom:none}
 
 #plotly-config td:has(input[name="stack"]){display:none}
-#plotly-config.stackable td:has(input[name="stack"]){display:table-cell}
+#plotly-config.show-st td:has(input[name="stack"]){display:table-cell}
+
+#plotly-config td:has(input[name="cat_x"]){display:none}
+#plotly-config.show-cx td:has(input[name="cat_x"]){display:table-cell}
+
+/*
+#plotly-config td:has(input[name="labels"]){display:none}
+#plotly-config.show-lb td:has(input[name="show_lb"]){display:table-cell}
+*/
 
 /*
 #plotly-config td:has(input[name="agg"]){display:none}

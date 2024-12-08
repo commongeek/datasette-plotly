@@ -1,8 +1,8 @@
 const PlotlyPlugin = (function() {
     let cachedData = null;
     let columns = {};
-    let params = {x: '', y: [], y2: [], type: 'line', stack: false, agg: false, };
-    let plot = null;
+    let params = {x: '', y: [], y2: [], type: 'line', stack: false, cat_x: false, labels: false};
+    let chart = null;
     let help = {
         'line': 'To build a line chart, select X and at least one of Y or Y2.',
         'bar': 'To build a bar chart, select X and at least one of Y or Y2.',
@@ -33,7 +33,9 @@ const PlotlyPlugin = (function() {
             params[par] = cols.filter(col => columns.hasOwnProperty(col));
         }
         params.type = hashParams.get('plt.t') || 'line';
-        params.stack = hashParams.get('plt.s') == '1';
+        params.stack = hashParams.get('plt.st') == '1';
+        params.cat_x = hashParams.get('plt.cx') == '1';
+        params.labels = hashParams.get('plt.lb') == '1';
         //params.agg = hashParams.get('plt.a') == '1';
     }
 
@@ -48,6 +50,8 @@ const PlotlyPlugin = (function() {
         const formData = new FormData(configForm);
         params.type = formData.get('type');
         params.stack = formData.get('stack') == '1';
+        params.cat_x = formData.get('cat_x') == '1';
+        params.labels = formData.get('labels') == '1';
         //params.agg = config.get('agg') == '1';
     }
 
@@ -77,7 +81,7 @@ const PlotlyPlugin = (function() {
         html += '<tr><th>Column</th><th>X</th><th>Y</th><th>Y2</th><th>Axis type</td></tr>';
         for (const [name, type] of Object.entries(columns)) {
             html += '<tr>' + td(name);
-            html += td(getInput('x', 'radio', name, name==params.x));
+            html += td((type == 'null') ? '' : getInput('x', 'radio', name, name==params.x));
             if (type == 'numeric') {
                 html += td(getInput('y', 'checkbox', name, params.y.includes(name)));
                 html += td(getInput('y2', 'checkbox', name, params.y2.includes(name)));
@@ -97,37 +101,52 @@ const PlotlyPlugin = (function() {
         html += '<td><label>' + getInput('type', 'radio', 'area', params.type=='area') + ' Area</label></td>';
         html += '<td><label>' + getInput('type', 'radio', 'bar', params.type=='bar') + ' Bar</label></td>';
         html += '<td><label>' + getInput('type', 'radio', 'pie', params.type=='pie') + ' Pie</label></td>';
-        html += '<td><label>' + getInput('stack', 'checkbox', '1', params.stack) + ' Stacked</label></td>';
-        html += '<td><label>' + getInput('categorical_x', 'checkbox', '1', params.categorical_x) + ' Categorical X</label></td>';
-        //html += '<td><label>' + getInput('agg', 'checkbox', '1', params.agg) + ' Aggregate</label></td>';
+        html += '<td class="sep"></td>';
+        html += '<td><label title="Show data labels">' + getInput('labels', 'checkbox', '1', params.cat_x) + ' Labels</label></td>';
+        html += '<td><label title="Stacked chart">' + getInput('stack', 'checkbox', '1', params.stack) + ' Stacked</label></td>';
+        html += '<td><label title="Treat X data as labels">' + getInput('cat_x', 'checkbox', '1', params.cat_x) + ' Categorical X</label></td>';
         html += '</tr></table>';
         return html;
     }
 
+    function setConfigFormClasses() {
+        classes = [];
+        if (params.type == 'bar') {
+            classes.push('show-st');
+        }
+        if ((params.type != 'pie') && (params.x > '') && (columns[params.x] != 'categorical')) {
+            classes.push('show-cx');
+        }
+        const form = document.getElementById('plotly-config');
+        form.classList = classes.join(' ');
+    }
+
+    function isValidDate(val) {
+        return Date.parse(val) > 0;
+    }
+
+    function valType(val) {
+        const t = typeof val;
+        if (t == 'number') {
+            return 'numeric'
+        } else if (t == 'string') {
+            return isValidDate(val) ? 'time' : 'categorical';
+        }
+        return 'null';
+    }
+
     function getColumns(data) {
-
-        //dodać typu null i obsługę wartości null
-
         const columns = {};
         for (const row of data) {
             for (const [key, val] of Object.entries(row)) {
-                const valType = typeof val;
+                const newType = valType(val);
                 if (key in columns) {
-                    if (columns[key] == 'time') {
-                        if ((valType != 'string') || (!dayjs(val).isValid())) {
-                            columns[key] = 'categorical';
-                        }
-                    } else if ((columns[key] == 'numeric') && (valType != 'number')) {
-                        columns[key] = 'categorical';
+                    const oldType = columns[key];
+                    if ((newType != oldType) && (newType != 'null') && (oldType != 'categorical')) {
+                        columns[key] = (oldType == 'null') ? newType : 'categorical';
                     }
                 } else {
-                    if (valType == 'number') {
-                        columns[key] = 'numeric';
-                    } else if (dayjs(val).isValid()) {
-                        columns[key] = 'time';
-                    } else {
-                        columns[key] = 'categorical';
-                    }
+                    columns[key] = newType;
                 }
             }
         }
@@ -175,6 +194,31 @@ const PlotlyPlugin = (function() {
         return urlObj.toString();
     }
 
+    function updateUrl() {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        for (const par of ['x', 'y', 'y2', 'st', 'cx', 'lb']) {
+            hashParams.delete(`plt.${par}`);
+        }
+        if (params.x > '') {
+            hashParams.set('plt.x', params.x);
+        }
+        for (const par of ['y', 'y2']) {
+            params[par].forEach(col => hashParams.append(`plt.${par}`, col));
+        }
+        hashParams.set('plt.t', params.type);
+        if (params.stack) {
+            hashParams.set('plt.st', 1);
+        }
+        if (params.cat_x) {
+            hashParams.set('plt.cx', 1);
+        }
+        if (params.labels) {
+            hashParams.set('plt.lb', 1);
+        }
+        const hashStr = hashParams.toString();
+        window.location.hash = hashStr;
+    }
+
     function updateLinks() {
         const hash = window.location.hash;
         const selectors = ['.rows-and-columns th a', '.facet-results a'];
@@ -193,30 +237,6 @@ const PlotlyPlugin = (function() {
         }
     }
 
-    function updateUrl() {
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        for (const par of ['x', 'y', 'y2', 's', 'a']) {
-            hashParams.delete(`plt.${par}`);
-        }
-        if (params.x > '') {
-            hashParams.set('plt.x', params.x);
-        }
-        for (const par of ['y', 'y2']) {
-            params[par].forEach(col => hashParams.append(`plt.${par}`, col));
-        }
-        if (params.type != 'line') {
-            hashParams.set('plt.t', params.type);
-        }
-        if (params.stack) {
-            hashParams.set('plt.s', 1);
-        }
-        if (params.abs) {
-            hashParams.set('plt.a', 1);
-        }
-        const hashStr = hashParams.toString();
-        window.location.hash = hashStr;
-    }
-
     function addEventListeners() {
         const tracesForm = document.getElementById('plotly-traces');
         const tracesFormInputs = tracesForm.querySelectorAll('tr input');
@@ -227,27 +247,14 @@ const PlotlyPlugin = (function() {
         for (form of [tracesForm, configForm]) {
             form.addEventListener('change', (event) => {
                 updateParamsFromForms();
-                configForm.dataset.type = params.type;
-                configForm.classList.toggle('stackable', isStackable());
+                setConfigFormClasses();
+                //configForm.dataset.type = params.type;
+                //configForm.classList.toggle('stackable', isStackable());
                 updateUrl();
                 updateLinks();
                 updateChart();
             });
         }
-    }
-
-    function addObserver() {
-        let timer;
-        let observer = new ResizeObserver((entries) => {
-            clearTimeout(timer);
-            timer = setTimeout(function() {
-                if (plot != null) {
-                    Plotly.Plots.resize('plotly-chart');
-                }
-            }, 500);
-        });
-        let graphDiv = document.getElementById('plotly-chart');
-        observer.observe(graphDiv, {attributes: true});
     }
 
     function chartMessage(text) {
@@ -270,10 +277,23 @@ const PlotlyPlugin = (function() {
         return (params.y.length > 0) || (params.y2.length > 0);
     }
 
-    function getSortedData(sortKey) {
-        return [...cachedData].sort((a, b) => a[params.x] - b[params.x]);
+    function getSortedData(sortCol) {
+        if (columns[sortCol] == 'time') {
+            return [...cachedData].sort((a, b) => a[sortCol].localeCompare(b[sortCol]));
+        }
+        return [...cachedData].sort((a, b) => a[sortCol] - b[sortCol]);
     }
 
+    function allInt(data, col) {
+        for (row of data) {
+            if (!Number.isInteger) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /*
     function aggregatedData(xCol, yCols) {
         const agg = {};
         for (const row of cachedData) {
@@ -290,137 +310,139 @@ const PlotlyPlugin = (function() {
         }
         return Object.values(agg);
     }
+    */
 
     function pieData(labelCol, valueCol, aggregate) {
-        const aggregated = cachedData.reduce((acc, item) => {
-            const label = item[labelCol];
-            const value = Math.abs(item[valueCol] || 0);
-            if (!acc[label]) {
-                acc[label] = 0;
+        const data = {};
+        for (const row of cachedData) {
+            const label = row[labelCol];
+            const value = Math.abs(row[valueCol] || 0);
+            if (label in data) {
+                data[label] += value;
+            } else {
+                data[label] = value;
             }
-            acc[label] += value;
-            return acc;
-        }, {});
+        }
+        for (let key in data) {
+            if (data[key] == 0) {
+                delete data[key];
+            }
+        }
         return {
-            labels: Object.keys(aggregated),
-            values: Object.values(aggregated)
+            labels: Object.keys(data),
+            values: Object.values(data)
         }
     }
 
-    function updateChart() {
+    function toApexType(colType) {
+        return (colType == 'time') ? 'datetime' : (colType == 'numeric') ? 'numeric' : 'category';
+    }
+
+    async function updateChart() {
         if (!validateParams()) {
-            plot = null;
             chartMessage(help[params.type]);
             return;
         }
-        var layout = {
-            //autosize: true,
-            title: {automargin: true},
-            showlegend: true,
-            legend: {orientation: 'h'},
-            margin: {autoexpand: true, b: 20, l: 20, r: 20, t: 20}
+
+        const compactFormatter = new Intl.NumberFormat('en-US', {
+            notation: 'compact',
+            compactDisplay: 'short'
+        });
+
+        const formatter = new Intl.NumberFormat('en-US');
+
+        const intFormatter = new Intl.NumberFormat('en-US', {maximumFractionDigits: 0});
+
+        const options = {
+            chart: {
+                type: params.type,
+                height: 'auto',
+                stacked: params.stack,
+                toolbar: { show: true }
+            },
+            dataLabels: {
+                enabled: params.labels,
+                style: {
+                    fontWeight: 'normal'
+                }
+            },
+            theme: { //3, 6, 7
+                palette: 'palette7'
+            },
+            tooltip: {
+                y: {
+                    formatter: formatter.format
+                }
+            },
+            series: [],
+            xaxis: {
+                type: 'categorical', //(columns[params.x]),
+                categories: []
+            },
+            yaxis: [],
+            labels: []
         };
-        const traces = [];
-        if (params.type == 'pie') {
-            let valCol = params.y[0];
-            let data = aggregatedData(params.x, [valCol]);
-            data = data.filter((item) => item[valCol] > 0)
-            traces.push({
-                type: 'pie',
-                rotation: 270,
-                direction: 'clockwise',
-                labels: data.map(row => row[params.x]),
-                values: data.map(row => row[valCol]),
-                textinfo: 'label+percent',
-                textposition: 'outside'
-            });
-            layout.showlegend = false;
-        /*
-        } else if (params.type == 'ohlc') {
-            const data = getSortedData();
-            traces.push({
-                x: data.map(row => row[params['x']]),
-                open: data.map(row => row[params['o']]),
-                high: data.map(row => row[params['h']]),
-                low: data.map(row => row[params['l']]),
-                close: data.map(row => row[params['c']]),
-                type: 'ohlc'
-            });
-            layout.showlegend = false;
-            layout.xaxis = {autorange: true, type: 'date'};
-        */
+        if (params.y.length > 0) {
+            options.yaxis.push({});
+        }
+        if (params.y2.length > 0) {
+            options.yaxis.push({opposite: true});
+        }
+        for (yaxis of options.yaxis) {
+            yaxis['labels'] = {formatter: compactFormatter.format};
+        }
+        if (params.type === 'pie') {
+            const valCol = params.y[0];
+            const data = pieData(params.x, valCol);
+            options.series = data.values;
         } else {
-            let data = cachedData;
-            /*
-            if (params.type != 'scatter') {
-                data = aggregatedData(params.x, params.y.concat(params.y2));
-            } else {
-                // is it necessary?
-                data = (columns[params.x] == 'label') ? cachedData : getSortedData();
+            const data = columns[params.x] == 'categorical' ? cachedData : getSortedData(params.x);
+            if ((columns[params.x] == 'numeric') && allInt(data, params.x)) {
+                options.xaxis.labels = {
+                    formatter: intFormatter.format
+                };
             }
-            */
-            const x = data.map(row => row[params.x]);
-            for (y of params.y) {
-                traces.push({
+            options.xaxis.categories = data.map(row => row[params.x]);
+            for (const y of params.y) {
+                options.series.push({
                     name: y,
-                    x: x,
-                    y: data.map(row => row[y])
+                    data: data.map(row => row[y]),
+                    yaxis: 1
                 });
             }
-            for (y of params.y2) {
-                traces.push({
-                    name: y,
-                    x: x,
-                    y: data.map(row => row[y]),
-                    yaxis: 'y2'
+            for (const y2 of params.y2) {
+                options.series.push({
+                    name: y2,
+                    data: data.map(row => row[y2]),
+                    yaxis: 2
                 });
             }
-            if (params.type == 'area') {
-                for (trace of traces) {
-                    trace.fill = 'tozeroy';
-                    trace.mode = 'none';
-                    if (params.type.includes('stack')) {
-                        trace.stackgroup = 'one';
-                    }
-                }
-            } else if (params.type == 'bar') {
-                let offsetgroup = 0;
-                for (trace of traces) {
-                    trace.type = 'bar';
-                    // https://community.plotly.com/t/barchart-with-bars-behind-each-other-with-multiple-axes/42082
-                    if (!params.stack) {
-                        trace.offsetgroup = offsetgroup++;
-                    }
-                }
-                if (params.stack) {
-                    layout.barmode = 'stack';
-                }
-            } else if (params.type == 'scatter') {
-                for (trace of traces) {
-                    trace.type = 'scatter';
-                    trace.mode = 'markers';
-                }
-            }
-            layout.xaxis = {automargin: 'height'};
-            layout.yaxis = {automargin: 'width'};
-            if (params.y2.length > 0) {
-                layout.yaxis2 = {automargin: 'width', side: 'right', overlaying: 'y'};
-            }
-            if ((params.y.length > 0) && (params.y2.length > 0)) {
-                if (params.y.length > 0) {
-                    layout.yaxis.title = {
-                        text: params.y.join(' / ')
-                    };
-                }
-                if (params.y2.length > 0) {
-                    layout.yaxis2.title = {
-                        text: params.y2.join(' / ')
-                    };
-                }
+            if (options.yaxis.length > 1) {
+                options.yaxis[0].title = {text: params.y.join(' | '), style: {fontWeight: 400}};
+                options.yaxis[1].title = {text: params.y2.join(' | '), style: {fontWeight: 400}, rotate:90};
             }
         }
-        document.getElementById('plotly-chart').innerHTML = '';
-        plot = Plotly.newPlot('plotly-chart', traces, layout);
+        console.log(options);
+        /*
+         * doesn't work :(
+         *
+        if (chart == null) {
+            const chartDiv = document.getElementById('plotly-chart');
+            //chartDiv.innerHTML = '';
+            chart = new ApexCharts(chartDiv, options);
+            chart.render();
+        } else {
+            chart.updateOptions(options, true);
+            //chart.render();
+        }
+        */
+        if (chart != null) {
+            chart.destroy();
+        }
+        const chartDiv = document.getElementById('plotly-chart');
+        chartDiv.innerHTML = '';
+        chart = new ApexCharts(chartDiv, options);
+        chart.render();
     }
 
     function getMinHeight() {
@@ -434,9 +456,9 @@ const PlotlyPlugin = (function() {
             await fetchData();
             loadParamsFromUrl();
             panel.innerHTML = getContent();
-            panel.style.minHeight = getMinHeight()+'px';
+            //panel.style.minHeight = getMinHeight()+'px';
+            setConfigFormClasses();
             addEventListeners();
-            addObserver();
             updateChart();
         }
     }
